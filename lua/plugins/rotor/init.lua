@@ -300,7 +300,7 @@ end
 
 --- Opens the floating buffer with the buffer list content after switching buffers.
 -- @param direction string: "next" or "prev" to indicate buffer switch direction.
-function open_buffer_list_buffer(direction)
+local function open_buffer_list_buffer(direction)
   -- If switcher isn't already active, write down the current MRU ordering of the buffers
   -- and mark as active
   if not is_switcher_active then

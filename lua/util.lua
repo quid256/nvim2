@@ -1,5 +1,24 @@
 local M = {}
 
+---Execute fn for each entry in tables
+---@param tbl table
+---@param update table
+function M.batch_update(tbl, update)
+  for k, v in pairs(update) do
+    tbl[k] = v
+  end
+end
+
+---Execute fn for each entry in tables
+---@param fn fun(...): nil
+---@param tables table[]
+function M.foreach(fn, tables)
+  for _, v in ipairs(tables) do
+    fn(unpack(v))
+  end
+end
+
+---Ensure that lazy.nvim is installed
 function M.ensure_lazy_installed()
   local lazypath = vim.fn.stdpath 'data' .. '/lazy/lazy.nvim'
   if not (vim.uv or vim.loop).fs_stat(lazypath) then
