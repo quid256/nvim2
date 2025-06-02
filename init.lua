@@ -1,68 +1,60 @@
 local util = require 'util'
+local partial = util.partial
 
 -- Settings
 util.batch_update(vim.g, {
   -- <leader> and <localleader> to ' ' and ','
   mapleader = ' ',
   maplocalleader = ',',
-
-  -- user-defined config to fork on whether a nerd font is present
-  have_nerd_font = true,
 })
 
 util.batch_update(vim.opt, {
-  -- Text editing defaults
-  number = true,
-  relativenumber = true,
-  signcolumn = 'yes',
+  ----- Editing -----
   spell = false,
-  colorcolumn = '90',
-  textwidth = 90,
-  wrap = false,
+  wrap = false, -- don't text-wrap by default
+  encoding = 'utf-8',
+  expandtab = true, -- Convert tab to spaces
   shiftwidth = 4,
   tabstop = 4,
   breakindent = true, -- Enable break indent
-  expandtab = true,
   mouse = 'a', -- Enable mouse mode, can be useful for resizing splits for example!
-
-  -- Don't show the mode, since it's already in the status line
-  showmode = false,
-  undofile = true, -- Save undo history
+  textwidth = 90,
+  updatetime = 250,
+  timeoutlen = 300,
 
   -- Case-insensitive searching UNLESS \C or one or more capital letters in the search term
   ignorecase = true,
   smartcase = true,
 
-  -- time lengths for key chords
-  updatetime = 250,
-  timeoutlen = 300,
+  ----- UI -----
+  number = true,
+  relativenumber = true,
+  signcolumn = 'yes',
+  colorcolumn = '90',
+  showmode = false, -- Don't show the mode, since it's already in the status line
+  cursorline = true, -- Show which line your cursor is on
 
   -- Configure how new splits should be opened
   splitright = true,
   splitbelow = true,
 
   -- Sets how neovim will display certain whitespace characters in the editor.,
-  --  See `:help 'list'`
-  --  and `:help 'listchars'`
   list = true,
   listchars = { tab = '» ', trail = '·', nbsp = '␣' },
-
-  -- Don't do the weird ~'s at the end of the buffer
   fillchars = { eob = ' ' },
 
   -- Preview substitutions live, as you type!
   inccommand = 'split',
 
-  -- Show which line your cursor is on
-  cursorline = true,
-
   -- Minimal number of screen lines to keep above and below the cursor.
   scrolloff = 10,
-
   -- if performing an operation that would fail due to unsaved changes in the buffer (like `:q`),
   -- instead raise a dialog asking if you wish to save the current file(s)
-  -- See `:help 'confirm'`
   confirm = true,
+
+  ----- Files ------
+  backupcopy = 'yes', -- Make nvim play nice with inotify
+  undofile = true, -- Save undo history
 })
 
 -- Sync clipboard between OS and Neovim.
@@ -98,6 +90,7 @@ util.foreach(vim.keymap.set, {
   { 'n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right window' } },
   { 'n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' } },
   { 'n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' } },
+
   { -- Terminal goer
     { 'n', 't' },
     '<C-t>',
@@ -141,13 +134,54 @@ vim.api.nvim_create_autocmd('TextYankPost', {
 -- Plugins
 util.ensure_lazy_installed()
 require('lazy').setup({
-  {
+
+  'gpanders/editorconfig.nvim',
+  -- 'romainl/vim-cool', -- automatic :nohl
+  'tpope/vim-sleuth', -- Detect tabstop and shiftwidth automatically
+
+  { -- automatically turn off hlsearch
+    'nvimdev/hlsearch.nvim',
+    name = 'hlsearch',
+    event = 'BufRead',
+    opts = {},
+  },
+
+  { -- Pretty quickfix list
     'yorickpeterse/nvim-pqf',
     event = 'UIEnter',
     opts = {},
   },
 
+  -- Use ; as : for entering commands
   {
+    'edte/normal-colon.nvim',
+    config = function()
+      require('normal-colon').setup {}
+
+      -- Hack to undo override of , behavior so I can use it as localleader
+      vim.keymap.del({ 'n', 'x' }, ',')
+    end,
+  },
+
+  { -- zen-mode
+    'folke/zen-mode.nvim',
+    opts = {},
+    keys = {
+      {
+        '<leader>z',
+        partial 'zen-mode:toggle',
+        desc = 'Toggle [Z]en Mode',
+      },
+    },
+  },
+
+  { -- Automatic delimiter pairs
+    'windwp/nvim-autopairs',
+    event = 'InsertEnter',
+    opts = {},
+  },
+
+  { -- Git client
     'NeogitOrg/neogit',
     dependencies = {
       'nvim-lua/plenary.nvim',
@@ -173,50 +207,78 @@ require('lazy').setup({
     keys = {
       {
         '<localleader>g',
-        function()
-          require('neogit').open()
-        end,
+        partial 'neogit:open',
         desc = 'Open Neo[g]it',
       },
     },
   },
 
-  'gpanders/editorconfig.nvim',
-  { -- automatically turn off hlsearch
-    'nvimdev/hlsearch.nvim',
-    name = 'hlsearch',
-    event = 'BufRead',
-    opts = {},
-  },
-  'tpope/vim-sleuth', -- Detect tabstop and shiftwidth automatically
-
-  -- Use ; as : for entering commands
-  { 'edte/normal-colon.nvim', opts = {} },
-
-  { -- zen-mode
-    'folke/zen-mode.nvim',
-    opts = {},
+  { -- Git signs
+    'lewis6991/gitsigns.nvim',
+    version = '*',
+    event = 'VimEnter',
     keys = {
       {
-        '<leader>z',
-        function()
-          require('zen-mode').toggle()
-        end,
-        desc = 'Toggle [Z]en Mode',
+        '<localleader>b',
+        '<cmd>Gitsigns blame<cr>',
+        desc = 'Open Git [B]lame',
       },
     },
-  },
-
-  { -- Adds git related signs to the gutter, as well as utilities for managing changes
-    'lewis6991/gitsigns.nvim',
     opts = {
-      signs = {
-        add = { text = '+' },
-        change = { text = '~' },
-        delete = { text = '_' },
-        topdelete = { text = '‾' },
-        changedelete = { text = '~' },
+      current_line_blame = true,
+      current_line_blame_opts = {
+        delay = 1000,
       },
+      signs = {
+        add = { text = '▌' },
+        change = { text = '▌' },
+        delete = { text = '▁' },
+        topdelete = { text = '▔' },
+        changedelete = { text = '~' },
+        untracked = { text = '┆' },
+      },
+      signs_staged = {
+        add = { text = '▌' },
+        change = { text = '▌' },
+        delete = { text = '▁' },
+        topdelete = { text = '▔' },
+        changedelete = { text = '~' },
+        untracked = { text = '┆' },
+      },
+      on_attach = function(bufnr)
+        local gitsigns = require 'gitsigns'
+
+        util.foreach(function(mode, l, r, opts)
+          opts = opts or {}
+          opts.buffer = bufnr
+          vim.keymap.set(mode, l, r, opts)
+        end, {
+          {
+            'n',
+            ']c',
+            function()
+              if vim.wo.diff then
+                vim.cmd.normal { ']c', bang = true }
+              else
+                gitsigns.nav_hunk 'next'
+              end
+            end,
+            { desc = 'Jump to next git [c]hange' },
+          },
+          {
+            'n',
+            '[c',
+            function()
+              if vim.wo.diff then
+                vim.cmd.normal { '[c', bang = true }
+              else
+                gitsigns.nav_hunk 'prev'
+              end
+            end,
+            { desc = 'Jump to previous git [c]hange' },
+          },
+        })
+      end,
     },
   },
 
@@ -228,38 +290,17 @@ require('lazy').setup({
       -- delay between pressing a key and opening which-key (milliseconds)
       -- this setting is independent of vim.opt.timeoutlen
       delay = 200,
+
+      triggers = {
+        { '<leader>', mode = 'nxso' },
+        { '<localleader>', mode = 'nxso' },
+      },
       icons = {
-        mappings = vim.g.have_nerd_font,
-        keys = vim.g.have_nerd_font and {} or {
-          Up = '<Up> ',
-          Down = '<Down> ',
-          Left = '<Left> ',
-          Right = '<Right> ',
-          C = '<C-…> ',
-          M = '<M-…> ',
-          D = '<D-…> ',
-          S = '<S-…> ',
-          CR = '<CR> ',
-          Esc = '<Esc> ',
-          ScrollWheelDown = '<ScrollWheelDown> ',
-          ScrollWheelUp = '<ScrollWheelUp> ',
-          NL = '<NL> ',
-          BS = '<BS> ',
-          Space = '<Space> ',
-          Tab = '<Tab> ',
-          F1 = '<F1>',
-          F2 = '<F2>',
-          F3 = '<F3>',
-          F4 = '<F4>',
-          F5 = '<F5>',
-          F6 = '<F6>',
-          F7 = '<F7>',
-          F8 = '<F8>',
-          F9 = '<F9>',
-          F10 = '<F10>',
-          F11 = '<F11>',
-          F12 = '<F12>',
-        },
+        breadcrumb = '>',
+        separator = '> ',
+        group = '+',
+        mappings = true,
+        keys = {},
       },
 
       -- Document existing key chains
@@ -393,7 +434,7 @@ require('lazy').setup({
         end,
       },
       { 'nvim-telescope/telescope-ui-select.nvim' },
-      { 'nvim-tree/nvim-web-devicons', enabled = vim.g.have_nerd_font },
+      { 'nvim-tree/nvim-web-devicons', enabled = true },
       'rktjmp/lush.nvim',
     },
     config = function()
@@ -427,7 +468,6 @@ require('lazy').setup({
         { 'n', '<leader>W', builtin.grep_string, { desc = 'Search current [W]ord' } },
         { 'n', '<leader>g', builtin.live_grep, { desc = 'Search by [G]rep' } },
         { 'n', '<leader>d', builtin.diagnostics, { desc = 'Search [D]iagnostics' } },
-        -- { 'n', '<leader>r', builtin.resume, { desc = 'Search [R]esume' } },
         { 'n', '<leader>.', builtin.oldfiles, { desc = 'Search Recent Files ("." for repeat)' } },
         { 'n', '<leader>j', builtin.buffers, { desc = 'Search Buffers' } },
         {
@@ -500,10 +540,6 @@ require('lazy').setup({
             TelescopeTitle { fg = colors.normal_bg, bg = colors.conditional_fg },
             TelescopeNormal { bg = colors.main_bg },
             TelescopeBorder { bg = colors.main_bg },
-
-            -- TelescopePromptTitle { fg = colors.normal_bg, bg = colors.conditional_fg },
-            -- TelescopePreviewTitle { fg = colors.normal_bg, bg = colors.conditional_fg },
-            -- TelescopeResultsTitle { fg = colors.normal_bg, bg = colors.conditional_fg },
             TelescopePromptNormal { bg = colors.prompt_bg },
             TelescopePromptBorder { bg = colors.prompt_bg },
             TelescopeSelection { bg = colors.prompt_bg },
@@ -525,8 +561,6 @@ require('lazy').setup({
       update_colors()
     end,
   },
-
-  -- LSP Plugins
   {
     -- `lazydev` configures Lua LSP for your Neovim config, runtime and plugins
     -- used for completion, annotations and signatures of Neovim apis
@@ -657,14 +691,14 @@ require('lazy').setup({
         severity_sort = true,
         float = { border = 'rounded', source = 'if_many' },
         underline = { severity = vim.diagnostic.severity.ERROR },
-        signs = vim.g.have_nerd_font and {
+        signs = {
           text = {
             [vim.diagnostic.severity.ERROR] = '󰅚 ',
             [vim.diagnostic.severity.WARN] = '󰀪 ',
             [vim.diagnostic.severity.INFO] = '󰋽 ',
             [vim.diagnostic.severity.HINT] = '󰌶 ',
           },
-        } or {},
+        },
         virtual_text = {
           source = 'if_many',
           spacing = 2,
@@ -680,42 +714,24 @@ require('lazy').setup({
         },
       }
 
+      -- Add blink.cmp capabilities
       local capabilities = require('blink.cmp').get_lsp_capabilities()
+      vim.lsp.config('*', {
+        capabilities = capabilities,
+      })
 
-      -- Modify to add new servers
-      local servers = {
-        lua_ls = {
-          settings = {
-            Lua = {
-              completion = { callSnippet = 'Replace' },
-              diagnostics = { disable = { 'missing-fields' } },
-            },
-          },
-        },
-        zls = {},
-        ts_ls = {},
+      -- Ensure all the LSs / formatters we need are installed
+      require('mason-tool-installer').setup {
+        ensure_installed = require('constants').ensure_installed,
       }
 
-      local ensure_installed = vim.tbl_keys(servers or {})
-      vim.list_extend(ensure_installed, {
-        'stylua', -- Used to format Lua code
-      })
-      require('mason-tool-installer').setup { ensure_installed = ensure_installed }
-
+      -- Automatically enable LSs for associated fts
       require('mason-lspconfig').setup {
-        ensure_installed = {}, -- explicitly set to an empty table (Kickstart populates installs via mason-tool-installer)
-        automatic_installation = false,
-        automatic_enable = true,
-        handlers = {
-          function(server_name)
-            local server = servers[server_name] or {}
-            -- This handles overriding only values explicitly passed
-            -- by the server configuration above. Useful when disabling
-            -- certain features of an LSP (for example, turning off formatting for ts_ls)
-            server.capabilities =
-              vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
-            require('lspconfig')[server_name].setup(server)
-          end,
+        ensure_installed = {}, -- explicitly set to an empty table
+        automatic_enable = {
+          exclude = {
+            'ruff',
+          },
         },
       }
     end,
@@ -728,10 +744,10 @@ require('lazy').setup({
     keys = {
       {
         '<localleader>f',
-        function()
-          require('conform').format { async = true, lsp_format = 'fallback' }
-        end,
-        mode = '',
+        partial('conform:format', {
+          async = true,
+          lsp_format = 'fallback',
+        }),
         desc = '[F]ormat buffer',
       },
     },
@@ -755,7 +771,7 @@ require('lazy').setup({
         lua = { 'stylua' },
         rust = {},
         zig = {},
-        -- python = { "isort", "black" },
+        python = { 'ruff_format' },
         javascript = { 'prettierd', stop_after_first = true },
         typescript = { 'prettierd', stop_after_first = true },
         jsx = { 'prettierd', stop_after_first = true },
@@ -764,7 +780,6 @@ require('lazy').setup({
       },
     },
   },
-
   { -- Snippets
     'L3MON4D3/LuaSnip',
     version = '2.*',
@@ -777,14 +792,42 @@ require('lazy').setup({
     dependencies = {
       {
         'rafamadriz/friendly-snippets',
-        config = function()
-          require('luasnip.loaders.from_vscode').lazy_load()
-        end,
+        config = partial 'luasnip.loaders.from_vscode:lazy_load',
       },
     },
-    opts = {},
+    lazy = false,
+    keys = {
+      { '<C-L>', partial('luasnip:jump', 1), mode = { 'i', 's' } },
+      { '<C-J>', partial('luasnip:jump', -1), mode = { 'i', 's' } },
+      {
+        '<C-E>',
+        function()
+          local ls = require 'luasnip'
+          if ls.choice_active() then
+            ls.change_choice(1)
+          end
+        end,
+        mode = { 'i', 's' },
+      },
+    },
+    config = function()
+      local types = require 'luasnip.util.types'
+      require('luasnip').setup {
+        update_events = { 'TextChanged', 'TextChangedI' },
+        ext_opts = {
+          [types.insertNode] = {
+            unvisited = { virt_text = { { ' ', 'LspInlayHint' } }, virt_text_pos = 'inline' },
+          },
+          [types.exitNode] = {
+            unvisited = { virt_text = { { ' ', 'LspInlayHint' } }, virt_text_pos = 'inline' },
+          },
+          [types.snippet] = {
+            unvisited = { virt_text = { { 'S', '@diff.minus' } }, virt_text_pos = 'inline' },
+          },
+        },
+      }
+    end,
   },
-
   { -- Autocompletion
     'saghen/blink.cmp',
     event = 'VimEnter',
@@ -798,6 +841,7 @@ require('lazy').setup({
     opts = {
       keymap = {
         preset = 'super-tab',
+        ['<Tab>'] = { 'select_and_accept', 'fallback' },
       },
       appearance = {
         nerd_font_variant = 'mono',
@@ -806,25 +850,38 @@ require('lazy').setup({
         documentation = { auto_show = false, auto_show_delay_ms = 500 },
       },
       sources = {
-        default = { 'lsp', 'path', 'snippets', 'lazydev' },
+        default = { 'snippets', 'lsp', 'path', 'lazydev' },
         providers = {
           lazydev = { module = 'lazydev.integrations.blink', score_offset = 100 },
+          lsp = {
+            name = 'LSP',
+            module = 'blink.cmp.sources.lsp',
+            transform_items = function(_, items)
+              return vim.tbl_filter(function(item)
+                return item.kind ~= require('blink.cmp.types').CompletionItemKind.Keyword
+              end, items)
+            end,
+          },
         },
       },
       snippets = { preset = 'luasnip' },
-      fuzzy = { implementation = 'prefer_rust_with_warning' },
+      fuzzy = {
+        implementation = 'prefer_rust_with_warning',
+        sorts = {
+          'exact',
+          'score',
+          'sort_text',
+        },
+      },
       signature = { enabled = true },
     },
   },
-
-  -- Highlight todo, notes, etc in comments
-  {
+  { -- Highlight todo, notes, etc in comments
     'folke/todo-comments.nvim',
     event = 'VimEnter',
     dependencies = { 'nvim-lua/plenary.nvim' },
     opts = { signs = false },
   },
-
   { -- Collection of various small independent plugins/modules
     'echasnovski/mini.nvim',
     config = function()
@@ -834,7 +891,13 @@ require('lazy').setup({
       --  - va)  - [V]isually select [A]round [)]paren
       --  - yinq - [Y]ank [I]nside [N]ext [Q]uote
       --  - ci'  - [C]hange [I]nside [']quote
-      require('mini.ai').setup { n_lines = 500 }
+      local gen_spec = require('mini.ai').gen_spec
+      require('mini.ai').setup {
+        k = gen_spec.treesitter { a = '@conditional.outer', i = '@conditional.inner' },
+        l = gen_spec.treesitter { a = '@loop.outer', i = '@loop.inner' },
+        c = gen_spec.treesitter { a = '@class.outer', i = '@class.inner' },
+        n_lines = 500,
+      }
 
       -- Add/delete/replace surroundings (brackets, quotes, etc.)
       --
@@ -870,11 +933,10 @@ require('lazy').setup({
       require('mini.starter').setup {}
     end,
   },
-
-  {
+  { -- Status line
     'nvim-lualine/lualine.nvim',
     opts = {
-      icons_enabled = vim.g.have_nerd_font,
+      icons_enabled = true,
 
       options = {
         component_separators = '',
@@ -905,7 +967,6 @@ require('lazy').setup({
       },
     },
   },
-
   { -- Highlight, edit, and navigate code
     'nvim-treesitter/nvim-treesitter',
     dependencies = { 'nvim-treesitter/nvim-treesitter-textobjects' },
@@ -967,7 +1028,7 @@ require('lazy').setup({
       },
     },
   },
-  {
+  { -- Quick sneak-y navigation using s
     'ggandor/leap.nvim',
     dependencies = { 'tpope/vim-repeat' },
     config = function()
@@ -981,136 +1042,58 @@ require('lazy').setup({
     end,
   },
 
-  {
-    { -- Add indentation guides even on blank lines
-      'lukas-reineke/indent-blankline.nvim',
-      main = 'ibl',
-      opts = {
-        scope = {
-          enabled = true,
-          show_start = false,
-          show_end = false,
-        },
+  { -- Add indentation guides even on blank lines
+    'lukas-reineke/indent-blankline.nvim',
+    main = 'ibl',
+
+    ---@module "ibl"
+    ---@type ibl.config
+    opts = {
+      scope = {
+        enabled = true,
+        show_start = false,
+        show_end = false,
       },
     },
   },
-  {
-    'windwp/nvim-autopairs',
-    event = 'InsertEnter',
-    opts = {},
-  },
 
-  { -- Git signs
-    'lewis6991/gitsigns.nvim',
-    opts = {
-      on_attach = function(bufnr)
-        local gitsigns = require 'gitsigns'
-
-        util.foreach(function(mode, l, r, opts)
-          opts = opts or {}
-          opts.buffer = bufnr
-          vim.keymap.set(mode, l, r, opts)
-        end, {
-          {
-            'n',
-            ']c',
-            function()
-              if vim.wo.diff then
-                vim.cmd.normal { ']c', bang = true }
-              else
-                gitsigns.nav_hunk 'next'
-              end
-            end,
-            { desc = 'Jump to next git [c]hange' },
-          },
-          {
-            'n',
-            '[c',
-            function()
-              if vim.wo.diff then
-                vim.cmd.normal { '[c', bang = true }
-              else
-                gitsigns.nav_hunk 'prev'
-              end
-            end,
-            { desc = 'Jump to previous git [c]hange' },
-          },
-
-          -- Actions
-          -- visual mode
-          -- {
-          --   'v',
-          --   '<leader>hs',
-          --   function()
-          --     gitsigns.stage_hunk { vim.fn.line '.', vim.fn.line 'v' }
-          --   end,
-          --   { desc = 'git [s]tage hunk' },
-          -- },
-          -- {
-          --   'v',
-          --   '<leader>hr',
-          --   function()
-          --     gitsigns.reset_hunk { vim.fn.line '.', vim.fn.line 'v' }
-          --   end,
-          --   { desc = 'git [r]eset hunk' },
-          -- },
-          -- -- normal mode
-          -- { 'n', '<leader>hs', gitsigns.stage_hunk, { desc = 'git [s]tage hunk' } },
-          -- { 'n', '<leader>hr', gitsigns.reset_hunk, { desc = 'git [r]eset hunk' } },
-          -- { 'n', '<leader>hS', gitsigns.stage_buffer, { desc = 'git [S]tage buffer' } },
-          -- { 'n', '<leader>hu', gitsigns.stage_hunk, { desc = 'git [u]ndo stage hunk' } },
-          -- { 'n', '<leader>hR', gitsigns.reset_buffer, { desc = 'git [R]eset buffer' } },
-          -- { 'n', '<leader>hp', gitsigns.preview_hunk, { desc = 'git [p]review hunk' } },
-          -- { 'n', '<leader>hb', gitsigns.blame_line, { desc = 'git [b]lame line' } },
-          -- { 'n', '<leader>hd', gitsigns.diffthis, { desc = 'git [d]iff against index' } },
-          -- {
-          --   'n',
-          --   '<leader>hD',
-          --   function()
-          --     gitsigns.diffthis '@'
-          --   end,
-          --   { desc = 'git [D]iff against last commit' },
-          -- },
-          -- -- Toggles
-          -- {
-          --   'n',
-          --   '<leader>tb',
-          --   gitsigns.toggle_current_line_blame,
-          --   { desc = '[T]oggle git show [b]lame line' },
-          -- },
-          -- {
-          --   'n',
-          --   '<leader>tD',
-          --   gitsigns.preview_hunk_inline,
-          --   { desc = '[T]oggle git show [D]eleted' },
-          -- },
-        })
-      end,
-    },
-  },
-  {
+  { -- File tree
     'nvim-neo-tree/neo-tree.nvim',
     version = '*',
     dependencies = {
       'nvim-lua/plenary.nvim',
       'nvim-tree/nvim-web-devicons', -- not strictly required, but recommended
       'MunifTanjim/nui.nvim',
+      {
+        's1n7ax/nvim-window-picker',
+        version = '*',
+        opts = {
+          filter_rules = {
+            include_current_win = false,
+            autoselect_one = true,
+            bo = {
+              filetype = { 'neo-tree', 'neo-tree-popup', 'notify' },
+              buftype = { 'quickfix' },
+            },
+          },
+        },
+      },
     },
     cmd = 'Neotree',
     keys = {
       { ' n', ':Neotree toggle<CR>', desc = 'NeoTree reveal', silent = true },
     },
     opts = {
+      -- *do* replace a terminal buffer if appropriate
+      open_files_do_not_replace_types = { 'trouble', 'qf' },
       filesystem = {
-        window = {
-          mappings = {
-            [' n'] = 'close_window',
-          },
+        follow_current_file = {
+          enabled = true,
         },
       },
     },
   },
-
+  -- Color schemes
   {
     'catppuccin/nvim',
     name = 'catppuccin',
@@ -1120,24 +1103,42 @@ require('lazy').setup({
     end,
   },
   { 'rose-pine/neovim', name = 'rose-pine' },
-  {
+  'EdenEast/nightfox.nvim',
+  'marko-cerovac/material.nvim',
+  'AlexvZyl/nordic.nvim',
+  'sainnhe/edge',
+
+  -- My custom plugins
+
+  { -- NVR, managed by lazy
+    dir = vim.fn.stdpath 'config' .. '/lua/plugins/nvr_compat',
+    main = 'plugins.nvr_compat',
+    opts = {},
+  },
+
+  { -- ftplugin run-once logic
+    dir = vim.fn.stdpath 'config' .. '/lua/plugins/ftonce',
+    main = 'plugins.ftonce',
+    lazy = false,
+    opts = {},
+  },
+
+  { -- Buffer rotator
     dir = vim.fn.stdpath 'config' .. '/lua/plugins/rotor',
+    main = 'plugins.rotor',
     keys = {
-      {
-        '<M-n>',
-        function()
-          require('plugins.rotor').next()
-        end,
-      },
-      {
-        '<M-p>',
-        function()
-          require('plugins.rotor').prev()
-        end,
+      { '<C-n>', partial 'plugins.rotor:next', mode = { 'n' } },
+      { '<C-p>', partial 'plugins.rotor:prev', mode = { 'n' } },
+    },
+    opts = {
+      always_expand_matching = {
+        '^_*init_*%.[a-zA-Z0-9]+$',
+        '^_*util_*%.[a-zA-Z0-9]+$',
       },
     },
   },
-  {
+
+  { -- Utility for creating floating buffers with various contents
     dir = vim.fn.stdpath 'config' .. '/lua/plugins/floating_buffers',
     keys = {
       {
@@ -1160,21 +1161,7 @@ require('lazy').setup({
   ui = {
     -- If you are using a Nerd Font: set icons to an empty table which will use the
     -- default lazy.nvim defined Nerd Font icons, otherwise define a unicode icons table
-    icons = vim.g.have_nerd_font and {} or {
-      cmd = '⌘',
-      config = '🛠',
-      event = '📅',
-      ft = '📂',
-      init = '⚙',
-      keys = '🗝',
-      plugin = '🔌',
-      runtime = '💻',
-      require = '🌙',
-      source = '📄',
-      start = '🚀',
-      task = '📌',
-      lazy = '💤 ',
-    },
+    icons = {},
   },
 })
 -- vim: ts=2 sts=2 sw=2 et
