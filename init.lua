@@ -1117,10 +1117,13 @@ require('lazy').setup({
   },
 
   { -- ftplugin run-once logic
-    dir = vim.fn.stdpath 'config' .. '/lua/plugins/ftonce',
-    main = 'plugins.ftonce',
+    dir = vim.fn.stdpath 'config' .. '/lua/plugins/ftexec',
+    main = 'plugins.ftexec',
     lazy = false,
     opts = {},
+    keys = {
+      { '<leader>sr', partial 'plugins.ftexec:reset' },
+    },
   },
 
   { -- Buffer rotator
