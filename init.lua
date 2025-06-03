@@ -434,6 +434,7 @@ require('lazy').setup({
         end,
       },
       { 'nvim-telescope/telescope-ui-select.nvim' },
+      { 'benfowler/telescope-luasnip.nvim' },
       { 'nvim-tree/nvim-web-devicons', enabled = true },
       'rktjmp/lush.nvim',
     },
@@ -457,6 +458,7 @@ require('lazy').setup({
       -- Enable Telescope extensions if they are installed
       pcall(telescope.load_extension, 'fzf')
       pcall(telescope.load_extension, 'ui-select')
+      pcall(telescope.load_extension, 'luasnip')
 
       -- See `:help telescope.builtin`
       local builtin = require 'telescope.builtin'
@@ -841,7 +843,22 @@ require('lazy').setup({
     opts = {
       keymap = {
         preset = 'super-tab',
-        ['<Tab>'] = { 'select_and_accept', 'fallback' },
+        ['<Tab>'] = {
+          function()
+            local cmp = require 'blink.cmp'
+            local ls = require 'luasnip'
+            if not cmp.is_active() and ls.expandable() then
+              print('cmp.is_visible() = ', vim.inspect(cmp.is_visible()))
+              vim.schedule(function()
+                ls.expand()
+              end)
+              return true
+            else
+              return cmp.select_and_accept()
+            end
+          end,
+          'fallback',
+        },
       },
       appearance = {
         nerd_font_variant = 'mono',
